@@ -1,106 +1,137 @@
-// client.js - full robust version
-const cfg = window.APP_CONFIG || {};
-const YT_LIST = cfg.YOUTUBE_LIST || [];
+// ============================
+//  CONFIG
+// ============================
+const API_KEY = typeof GROQ_KEY !== "undefined" ? GROQ_KEY : null;
+const chatLog = document.getElementById("chatLog");
+const chatInput = document.getElementById("chatIn");
+const aiStatus = document.getElementById("aiStatus");
 
-let currentIndex = 0;
-let ytPlayer = null;
+// ============================
+//  AI CHAT — REAL GROQ FINAL
+// ============================
+async function sendAIMessage(message) {
+    if (!API_KEY) {
+        aiStatus.textContent = "AI: KEY NOT FOUND";
+        return "Error: GROQ_KEY belum diisi.";
+    }
 
-function onYouTubeIframeAPIReady() {
-  const id = YT_LIST[0] || '';
-  ytPlayer = new YT.Player('player', {
-    height: '200',
-    width: '100%',
-    videoId: id,
-    playerVars: { 'playsinline': 1, 'rel': 0, 'enablejsapi': 1 },
-    events: { 'onReady': onPlayerReady }
-  });
+    aiStatus.textContent = "AI: thinking...";
+
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "llama3-8b-8192",
+                messages: [
+                    { role: "system", content: "You are a helpful assistant." },
+                    { role: "user", content: message }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        const reply = data.choices?.[0]?.message?.content || "Error: empty response";
+
+        aiStatus.textContent = "AI: online";
+        return reply;
+
+    } catch (e) {
+        aiStatus.textContent = "AI: error";
+        return "Gagal menghubungi AI.";
+    }
 }
 
-function onPlayerReady() { updateTitle(YT_LIST[currentIndex]); }
+// kirim pesan
+document.getElementById("chatSend").onclick = async () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
 
-function updateTitle(id){ document.getElementById('ytTitle').textContent = id ? 'Video ID: ' + id : ''; }
+    chatLog.innerHTML += `<div class="user-msg">${text}</div>`;
+    chatInput.value = "";
 
-function renderByIndex(i){
-  if(!YT_LIST.length) return;
-  currentIndex = (i + YT_LIST.length) % YT_LIST.length;
-  const id = YT_LIST[currentIndex];
-  if(ytPlayer && ytPlayer.loadVideoById) ytPlayer.loadVideoById(id);
-  updateTitle(id);
+    const reply = await sendAIMessage(text);
+    chatLog.innerHTML += `<div class="ai-msg">${reply}</div>`;
+
+    chatLog.scrollTop = chatLog.scrollHeight;
+};
+
+// ============================
+//  GAME SYSTEM — FINAL
+// ============================
+function setGame(src) {
+    document.getElementById("gameFrame").src = src;
 }
 
-function playPause(){ if(!ytPlayer) return; const state = ytPlayer.getPlayerState(); if(state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo(); else ytPlayer.playVideo(); }
-function nextVid(){ renderByIndex(currentIndex+1); }
-function prevVid(){ renderByIndex(currentIndex-1); }
-function playRandom(){ renderByIndex(Math.floor(Math.random()*YT_LIST.length)); }
-
-document.addEventListener('DOMContentLoaded', ()=>{
-  const randomBtn = document.getElementById('randomBtn');
-  if(randomBtn) randomBtn.addEventListener('click', playRandom);
-  const randomSmall = document.getElementById('randomSmall');
-  if(randomSmall) randomSmall.addEventListener('click', playRandom);
-  const nextBtn = document.getElementById('nextVid');
-  if(nextBtn) nextBtn.addEventListener('click', nextVid);
-  const prevBtn = document.getElementById('prevVid');
-  if(prevBtn) prevBtn.addEventListener('click', prevVid);
-  const playBtn = document.getElementById('playPause');
-  if(playBtn) playBtn.addEventListener('click', playPause);
-
-  const searchBtn = document.getElementById('searchBtn');
-  if(searchBtn) searchBtn.addEventListener('click', ()=>{
-    const q = document.getElementById('gq').value.trim();
-    if(!q) return;
-    window.open('https://www.google.com/search?q='+encodeURIComponent(q), '_blank');
-  });
-
-  const nextQuote = document.getElementById('nextQuote');
-  if(nextQuote) nextQuote.addEventListener('click', ()=>{ const QUOTES = [
-    "Sukses bukan kunci kebahagiaan — kebahagiaan adalah kunci sukses.",
-    "Kerja keras hari ini, cerita sukses esok hari.",
-    "Jangan takut gagal; takutlah jika tidak pernah mencoba.",
-    "Mulailah dari yang kecil, konsistenlah, dan lihat perubahan."
-  ]; document.getElementById('quoteText').textContent = QUOTES[Math.floor(Math.random()*QUOTES.length)]; });
-
-  document.querySelectorAll('.gbtn').forEach(b=> b.addEventListener('click', ()=>{ const frame=document.getElementById('gameFrame'); if(frame) frame.src = b.getAttribute('data-src'); }));
-
-  const themeToggle = document.getElementById('themeToggle');
-  if(themeToggle) themeToggle.addEventListener('click', ()=> document.body.classList.toggle('dark'));
-
-  const chatSend = document.getElementById('chatSend');
-  const chatIn = document.getElementById('chatIn');
-  if(chatSend && chatIn){
-    chatSend.addEventListener('click', sendChat);
-    chatIn.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat(); });
-  }
-
-  playRandom();
+document.querySelectorAll(".gbtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const src = btn.getAttribute("data-src");
+        setGame(src);
+    });
 });
 
-async function sendChat(){
-  const input = document.getElementById('chatIn');
-  if(!input) return;
-  const msg = input.value.trim();
-  if(!msg) return;
-  const log = document.getElementById('chatLog');
-  const userDiv = document.createElement('div'); userDiv.innerHTML = '<b>You:</b> '+msg; if(log) log.appendChild(userDiv);
-  input.value='';
-  const aiDiv = document.createElement('div'); aiDiv.innerHTML = '<b>AI:</b> ...'; if(log) log.appendChild(aiDiv);
-  if(log) log.scrollTop = log.scrollHeight;
+// ============================
+//  QUOTE
+// ============================
+const quotes = [
+    "Mulai sekarang, jangan tunggu sempurna.",
+    "Konsisten lebih kuat dari berbakat.",
+    "Sedikit demi sedikit menjadi bukit.",
+    "Fokus pada progress, bukan hasil instan."
+];
 
-  const proxyBase = cfg.PROXY_BASE || '';
-  const url = (proxyBase ? proxyBase.replace(/\/$/, '') : '') + '/api/chat';
-  try{
-    const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ message: msg }) });
-    if(res.ok){
-      const j = await res.json();
-      aiDiv.innerHTML = '<b>AI:</b> ' + (j.reply || j.error || 'No reply');
-      const s = document.getElementById('aiStatus'); if(s) s.textContent = 'AI: done';
-      return;
-    } else {
-      aiDiv.innerHTML = '<b>AI:</b> Mock reply: ' + msg.split('').reverse().join('');
-      const s = document.getElementById('aiStatus'); if(s) s.textContent = 'AI: mock (proxy error)';
-    }
-  }catch(e){
-    aiDiv.innerHTML = '<b>AI:</b> Mock reply: ' + msg.split('').reverse().join('');
-    const s = document.getElementById('aiStatus'); if(s) s.textContent = 'AI: mock (no proxy)';
-  }
+document.getElementById("nextQuote").onclick = () => {
+    const r = Math.floor(Math.random() * quotes.length);
+    document.getElementById("quoteText").textContent = quotes[r];
+};
+
+// ============================
+//  YOUTUBE MINI PLAYER
+// ============================
+let player;
+const videos = [
+    { id: "dQw4w9WgXcQ", title: "Random 1" },
+    { id: "kXYiU_JCYtU", title: "Random 2" },
+    { id: "3JZ4pnNtyxQ", title: "Random 3" }
+];
+let index = 0;
+
+function onYouTubeIframeAPIReady() {
+    loadVideo(index);
 }
+
+function loadVideo(i) {
+    player = new YT.Player("player", {
+        height: "250",
+        width: "100%",
+        videoId: videos[i].id,
+        events: {}
+    });
+    document.getElementById("ytTitle").textContent = videos[i].title;
+}
+
+document.getElementById("nextVid").onclick = () => {
+    index = (index + 1) % videos.length;
+    loadVideo(index);
+};
+
+document.getElementById("prevVid").onclick = () => {
+    index = (index - 1 + videos.length) % videos.length;
+    loadVideo(index);
+};
+
+document.getElementById("randomSmall").onclick = () => {
+    index = Math.floor(Math.random() * videos.length);
+    loadVideo(index);
+};
+
+// ============================
+//  SEARCH
+// ============================
+document.getElementById("searchBtn").onclick = () => {
+    const q = document.getElementById("gq").value.trim();
+    if (q) window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`);
+};
