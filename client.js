@@ -1,137 +1,129 @@
-// ============================
+// =========================
 //  CONFIG
-// ============================
-const API_KEY = typeof GROQ_KEY !== "undefined" ? GROQ_KEY : null;
-const chatLog = document.getElementById("chatLog");
-const chatInput = document.getElementById("chatIn");
-const aiStatus = document.getElementById("aiStatus");
+// =========================
+const HF_API_KEY = "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";
 
-// ============================
-//  AI CHAT — REAL GROQ FINAL
-// ============================
-async function sendAIMessage(message) {
-    if (!API_KEY) {
-        aiStatus.textContent = "AI: KEY NOT FOUND";
-        return "Error: GROQ_KEY belum diisi.";
-    }
-
-    aiStatus.textContent = "AI: thinking...";
-
-    try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "llama3-8b-8192",
-                messages: [
-                    { role: "system", content: "You are a helpful assistant." },
-                    { role: "user", content: message }
-                ]
-            })
-        });
-
-        const data = await response.json();
-        const reply = data.choices?.[0]?.message?.content || "Error: empty response";
-
-        aiStatus.textContent = "AI: online";
-        return reply;
-
-    } catch (e) {
-        aiStatus.textContent = "AI: error";
-        return "Gagal menghubungi AI.";
-    }
-}
-
-// kirim pesan
-document.getElementById("chatSend").onclick = async () => {
-    const text = chatInput.value.trim();
-    if (!text) return;
-
-    chatLog.innerHTML += `<div class="user-msg">${text}</div>`;
-    chatInput.value = "";
-
-    const reply = await sendAIMessage(text);
-    chatLog.innerHTML += `<div class="ai-msg">${reply}</div>`;
-
-    chatLog.scrollTop = chatLog.scrollHeight;
-};
-
-// ============================
-//  GAME SYSTEM — FINAL
-// ============================
-function setGame(src) {
-    document.getElementById("gameFrame").src = src;
-}
-
-document.querySelectorAll(".gbtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        const src = btn.getAttribute("data-src");
-        setGame(src);
-    });
-});
-
-// ============================
-//  QUOTE
-// ============================
+// =========================
+//  QUOTES
+// =========================
 const quotes = [
-    "Mulai sekarang, jangan tunggu sempurna.",
-    "Konsisten lebih kuat dari berbakat.",
-    "Sedikit demi sedikit menjadi bukit.",
-    "Fokus pada progress, bukan hasil instan."
+  "Mulai dari yang kecil, tapi konsisten.",
+  "Kesuksesan datang dari kebiasaan kecil.",
+  "Jangan menyerah, proses tidak menghianati hasil.",
+  "Yang penting mulai dulu.",
+  "Kerjakan, bukan hanya pikirkan."
 ];
-
 document.getElementById("nextQuote").onclick = () => {
-    const r = Math.floor(Math.random() * quotes.length);
-    document.getElementById("quoteText").textContent = quotes[r];
+  document.getElementById("quoteText").textContent =
+    quotes[Math.floor(Math.random() * quotes.length)];
 };
 
-// ============================
-//  YOUTUBE MINI PLAYER
-// ============================
+// =========================
+//  SEARCH
+// =========================
+document.getElementById("searchBtn").onclick = () => {
+  const q = document.getElementById("gq").value.trim();
+  if (!q) return;
+  window.open("https://www.google.com/search?q=" + encodeURIComponent(q));
+};
+
+// =========================
+//  THEME TOGGLE
+// =========================
+document.getElementById("themeToggle").onclick = () => {
+  document.body.classList.toggle("dark");
+};
+
+// =========================
+//  AI CHAT (HuggingFace Falcon-7b)
+// =========================
+async function sendToAI(userMsg) {
+  try {
+    const res = await fetch(
+      "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${HF_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ inputs: userMsg })
+      }
+    );
+
+    const data = await res.json();
+    return data[0]?.generated_text || "AI gagal merespon.";
+  } catch (e) {
+    return "AI error.";
+  }
+}
+
+// CHAT UI
+const chatLog = document.getElementById("chatLog");
+document.getElementById("chatSend").onclick = async () => {
+  const inp = document.getElementById("chatIn");
+  const msg = inp.value.trim();
+  if (!msg) return;
+
+  chatLog.innerHTML += `<div class="bubble user">${msg}</div>`;
+  inp.value = "";
+
+  const reply = await sendToAI(msg);
+  chatLog.innerHTML += `<div class="bubble ai">${reply}</div>`;
+  chatLog.scrollTop = chatLog.scrollHeight;
+};
+
+// =========================
+//  YOUTUBE MINI
+// =========================
 let player;
-const videos = [
-    { id: "dQw4w9WgXcQ", title: "Random 1" },
-    { id: "kXYiU_JCYtU", title: "Random 2" },
-    { id: "3JZ4pnNtyxQ", title: "Random 3" }
+const ytList = [
+  { id: "dQw4w9WgXcQ", title: "Video 1" },
+  { id: "kxopViU98Xo", title: "Video 2" },
+  { id: "C0DPdy98e4c", title: "Video 3" }
 ];
-let index = 0;
+let ytIndex = 0;
 
 function onYouTubeIframeAPIReady() {
-    loadVideo(index);
+  loadYT(0);
 }
 
-function loadVideo(i) {
+function loadYT(i) {
+  ytIndex = i;
+  const v = ytList[i];
+
+  if (!player) {
     player = new YT.Player("player", {
-        height: "250",
-        width: "100%",
-        videoId: videos[i].id,
-        events: {}
+      videoId: v.id,
+      playerVars: { autoplay: 0, modestbranding: 1 }
     });
-    document.getElementById("ytTitle").textContent = videos[i].title;
+  } else {
+    player.loadVideoById(v.id);
+  }
+
+  document.getElementById("ytTitle").textContent = v.title;
 }
 
 document.getElementById("nextVid").onclick = () => {
-    index = (index + 1) % videos.length;
-    loadVideo(index);
+  loadYT((ytIndex + 1) % ytList.length);
 };
-
 document.getElementById("prevVid").onclick = () => {
-    index = (index - 1 + videos.length) % videos.length;
-    loadVideo(index);
+  loadYT((ytIndex - 1 + ytList.length) % ytList.length);
 };
-
+document.getElementById("playPause").onclick = () => {
+  const state = player.getPlayerState();
+  if (state === 1) player.pauseVideo();
+  else player.playVideo();
+};
 document.getElementById("randomSmall").onclick = () => {
-    index = Math.floor(Math.random() * videos.length);
-    loadVideo(index);
+  loadYT(Math.floor(Math.random() * ytList.length));
 };
 
-// ============================
-//  SEARCH
-// ============================
-document.getElementById("searchBtn").onclick = () => {
-    const q = document.getElementById("gq").value.trim();
-    if (q) window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`);
-};
+// =========================
+//  GAME
+// =========================
+document.querySelectorAll(".gbtn").forEach(btn => {
+  btn.onclick = () => {
+    document.getElementById("gameFrame").src = btn.dataset.src;
+  };
+});
